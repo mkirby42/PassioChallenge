@@ -1,5 +1,8 @@
 import os
 import tensorflow as tf
+from keras.models import Model
+from tensorflow.keras.layers import Lambda
+import tensorflow.keras.backend as K
 
 cwd = os.getcwd()
 
@@ -9,19 +12,8 @@ mobile_net = tf.keras.applications.MobileNetV2(
     weights = "imagenet",
 )
 
-l2_reg = tf.keras.regularizers.l2(0.0001)
-
-for layer in mobile_net.layers:
-    for attr in ['kernel_regularizer']:
-      # If layer has regularization attribute add l2
-      if hasattr(layer, attr):
-        setattr(layer, attr, l2_reg)
-
-# Since changing attributes just modifies the model config we need to save the weights and reload the model
-model_json = mobile_net.to_json()
-mobile_net.save_weights(f"{cwd}/weights.h5")
-reconstructed_mobile_net = tf.keras.models.model_from_json(model_json)
-reconstructed_mobile_net.load_weights(f"{cwd}/weights.h5", by_name = True)
+l2_norm = Lambda(lambda  x: K.l2_normalize(x ,axis = 1))(mobile_net.layers[-1].output)
+mobileNet_L2 = Model(inputs = mobile_net.inputs, outputs = l2_norm)
 
 # Save model to the challenge directory
-reconstructed_mobile_net.save(f"{cwd}/mobileNetV2+L2Reg.h5", save_format = "h5")
+mobileNet_L2.save(f"{cwd}/mobileNetV2_L2.h5", save_format = "h5")
